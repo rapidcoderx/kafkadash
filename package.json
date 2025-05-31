@@ -1,0 +1,30 @@
+{
+  "name": "kafkadash",
+  "version": "1.0.0",
+  "description": "Modern Kafka Dashboard with UI",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "check-updates": "ncu",
+    "lint": "eslint .",
+    "test": "jest"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "kafkajs": "^2.2.4",
+    "winston": "^3.17.0",
+    "dotenv": "^16.5.0",
+    "cors": "^2.8.5",
+    "helmet": "^8.1.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10",
+    "npm-check-updates": "^18.0.1",
+    "eslint": "^9.28.0",
+    "jest": "^29.7.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+} 
