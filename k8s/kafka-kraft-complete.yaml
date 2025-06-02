@@ -1,0 +1,460 @@
+---
+# Namespace for Kafka deployment
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kafka
+  labels:
+    name: kafka
+
+---
+# ConfigMap for Kafka configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kafka-config
+  namespace: kafka
+  labels:
+    app: kafka
+data:
+  server.properties: |
+    # Basic Kafka server configuration
+    process.roles=broker,controller
+    node.id=1
+    controller.quorum.voters=1@kafka-0.kafka-headless.kafka.svc.cluster.local:9093
+    listeners=PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
+    advertised.listeners=PLAINTEXT://kafka-0.kafka-headless.kafka.svc.cluster.local:9092,EXTERNAL://localhost:9094
+    listener.security.protocol.map=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+    controller.listener.names=CONTROLLER
+    inter.broker.listener.name=PLAINTEXT
+    
+    # Storage configuration
+    log.dirs=/var/kafka-logs
+    num.network.threads=3
+    num.io.threads=8
+    socket.send.buffer.bytes=102400
+    socket.receive.buffer.bytes=102400
+    socket.request.max.bytes=104857600
+    
+    # Topic configuration
+    num.partitions=3
+    num.recovery.threads.per.data.dir=1
+    offsets.topic.replication.factor=1
+    transaction.state.log.replication.factor=1
+    transaction.state.log.min.isr=1
+    default.replication.factor=1
+    min.insync.replicas=1
+    
+    # Log retention configuration
+    log.retention.hours=168
+    log.retention.bytes=1073741824
+    log.segment.bytes=1073741824
+    log.retention.check.interval.ms=300000
+    log.cleanup.policy=delete
+    
+    # Compression
+    compression.type=producer
+    
+    # Group coordinator configuration
+    group.initial.rebalance.delay.ms=0
+    
+    # KRaft configuration
+    metadata.log.dir=/var/kafka-logs/__cluster_metadata
+    
+    # Performance tuning
+    replica.fetch.max.bytes=1048576
+    message.max.bytes=1000000
+    replica.socket.timeout.ms=30000
+    replica.socket.receive.buffer.bytes=65536
+    
+  log4j.properties: |
+    log4j.rootLogger=INFO, stdout
+    
+    log4j.appender.stdout=org.apache.log4j.ConsoleAppender
+    log4j.appender.stdout.layout=org.apache.log4j.PatternLayout
+    log4j.appender.stdout.layout.ConversionPattern=[%d] %p %m (%c)%n
+    
+    log4j.appender.kafkaAppender=org.apache.log4j.DailyRollingFileAppender
+    log4j.appender.kafkaAppender.DatePattern='.'yyyy-MM-dd-HH
+    log4j.appender.kafkaAppender.File=/var/kafka-logs/server.log
+    log4j.appender.kafkaAppender.layout=org.apache.log4j.PatternLayout
+    log4j.appender.kafkaAppender.layout.ConversionPattern=[%d] %p %m (%c)%n
+    
+    log4j.logger.kafka=INFO, kafkaAppender
+    log4j.logger.org.apache.kafka=INFO, kafkaAppender
+    
+    log4j.logger.kafka.controller=TRACE, kafkaAppender
+    log4j.logger.kafka.coordinator.group=INFO, kafkaAppender
+    log4j.logger.kafka.coordinator.transaction=INFO, kafkaAppender
+    log4j.logger.kafka.request.logger=WARN, kafkaAppender
+    log4j.logger.kafka.network.RequestChannel$=WARN, kafkaAppender
+    log4j.logger.kafka.network.Processor=WARN, kafkaAppender
+    log4j.logger.kafka.server.KafkaApis=WARN, kafkaAppender
+    log4j.logger.kafka.network.RequestChannel$=WARN, kafkaAppender
+    log4j.logger.kafka.utils.Log4jControllerRegistration$=WARN, kafkaAppender
+
+---
+# PersistentVolumeClaim for Kafka data
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: kafka-storage
+  namespace: kafka
+  labels:
+    app: kafka
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: standard # Change this to your storage class
+
+---
+# PersistentVolumeClaim for Kafka logs
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: kafka-logs
+  namespace: kafka
+  labels:
+    app: kafka
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: standard # Change this to your storage class
+
+---
+# Headless Service for Kafka StatefulSet
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-headless
+  namespace: kafka
+  labels:
+    app: kafka
+spec:
+  clusterIP: None
+  selector:
+    app: kafka
+  ports:
+    - name: kafka
+      port: 9092
+      targetPort: 9092
+      protocol: TCP
+    - name: kafka-controller
+      port: 9093
+      targetPort: 9093
+      protocol: TCP
+
+---
+# Service for external access to Kafka
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-service
+  namespace: kafka
+  labels:
+    app: kafka
+spec:
+  type: ClusterIP
+  selector:
+    app: kafka
+  ports:
+    - name: kafka
+      port: 9092
+      targetPort: 9092
+      protocol: TCP
+    - name: kafka-external
+      port: 9094
+      targetPort: 9094
+      protocol: TCP
+    - name: jmx
+      port: 9999
+      targetPort: 9999
+      protocol: TCP
+
+---
+# Service for external access (LoadBalancer - optional)
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-external
+  namespace: kafka
+  labels:
+    app: kafka
+spec:
+  type: LoadBalancer # Change to NodePort if LoadBalancer is not available
+  selector:
+    app: kafka
+  ports:
+    - name: kafka-external
+      port: 9094
+      targetPort: 9094
+      protocol: TCP
+      nodePort: 30094 # Only needed for NodePort type
+
+---
+# StatefulSet for Kafka
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: kafka
+  namespace: kafka
+  labels:
+    app: kafka
+spec:
+  serviceName: kafka-headless
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka
+  template:
+    metadata:
+      labels:
+        app: kafka
+    spec:
+      securityContext:
+        fsGroup: 1001
+        runAsNonRoot: true
+        runAsUser: 1001
+      initContainers:
+        - name: kafka-init
+          image: confluentinc/cp-kafka:7.4.0
+          command:
+            - /bin/bash
+            - -c
+            - |
+              echo "Initializing Kafka..."
+              
+              # Create necessary directories
+              mkdir -p /var/kafka-logs
+              mkdir -p /var/kafka-logs/__cluster_metadata
+              
+              # Set proper permissions
+              chown -R 1001:1001 /var/kafka-logs
+              
+              # Format the storage directory for KRaft
+              if [ ! -f /var/kafka-logs/meta.properties ]; then
+                echo "Formatting storage for KRaft mode..."
+                kafka-storage.sh format -t $(kafka-storage.sh random-uuid) -c /etc/kafka/server.properties
+              else
+                echo "Storage already formatted"
+              fi
+          securityContext:
+            runAsUser: 0 # Need root for chown
+          volumeMounts:
+            - name: kafka-storage
+              mountPath: /var/kafka-logs
+            - name: kafka-config
+              mountPath: /etc/kafka
+              readOnly: true
+      containers:
+        - name: kafka
+          image: confluentinc/cp-kafka:7.4.0
+          ports:
+            - containerPort: 9092
+              name: kafka
+            - containerPort: 9093
+              name: controller
+            - containerPort: 9094
+              name: external
+            - containerPort: 9999
+              name: jmx
+          env:
+            - name: KAFKA_CLUSTER_ID
+              value: "kafka-cluster-1"
+            - name: KAFKA_JMX_PORT
+              value: "9999"
+            - name: KAFKA_JMX_HOSTNAME
+              value: "localhost"
+            - name: KAFKA_HEAP_OPTS
+              value: "-Xmx1G -Xms1G"
+            - name: KAFKA_OPTS
+              value: "-Dlogging.level=INFO"
+          command:
+            - /bin/bash
+            - -c
+            - |
+              echo "Starting Kafka in KRaft mode..."
+              exec kafka-server-start.sh /etc/kafka/server.properties
+          volumeMounts:
+            - name: kafka-storage
+              mountPath: /var/kafka-logs
+            - name: kafka-config
+              mountPath: /etc/kafka
+              readOnly: true
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "500m"
+            limits:
+              memory: "2Gi"
+              cpu: "1000m"
+          livenessProbe:
+            tcpSocket:
+              port: 9092
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            tcpSocket:
+              port: 9092
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                  - /bin/bash
+                  - -c
+                  - |
+                    echo "Gracefully shutting down Kafka..."
+                    kafka-server-stop.sh
+      volumes:
+        - name: kafka-storage
+          persistentVolumeClaim:
+            claimName: kafka-storage
+        - name: kafka-config
+          configMap:
+            name: kafka-config
+      terminationGracePeriodSeconds: 30
+
+---
+# Optional: Kafka UI for management
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-ui
+  namespace: kafka
+  labels:
+    app: kafka-ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka-ui
+  template:
+    metadata:
+      labels:
+        app: kafka-ui
+    spec:
+      containers:
+        - name: kafka-ui
+          image: provectuslabs/kafka-ui:latest
+          ports:
+            - containerPort: 8080
+              name: ui
+          env:
+            - name: KAFKA_CLUSTERS_0_NAME
+              value: "kraft-cluster"
+            - name: KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS
+              value: "kafka-service:9092"
+            - name: KAFKA_CLUSTERS_0_METRICS_PORT
+              value: "9999"
+            - name: DYNAMIC_CONFIG_ENABLED
+              value: "true"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+
+---
+# Service for Kafka UI
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-ui-service
+  namespace: kafka
+  labels:
+    app: kafka-ui
+spec:
+  type: ClusterIP
+  selector:
+    app: kafka-ui
+  ports:
+    - name: ui
+      port: 8080
+      targetPort: 8080
+      protocol: TCP
+
+---
+# Optional: NetworkPolicy for security
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: kafka-network-policy
+  namespace: kafka
+spec:
+  podSelector:
+    matchLabels:
+      app: kafka
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: default # Allow access from default namespace
+        - namespaceSelector:
+            matchLabels:
+              name: kafka # Allow internal communication
+      ports:
+        - protocol: TCP
+          port: 9092
+        - protocol: TCP
+          port: 9093
+        - protocol: TCP
+          port: 9094
+  egress:
+    - {} # Allow all egress traffic
+
+---
+# Optional: HorizontalPodAutoscaler for Kafka UI
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: kafka-ui-hpa
+  namespace: kafka
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: kafka-ui
+  minReplicas: 1
+  maxReplicas: 3
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 80
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80

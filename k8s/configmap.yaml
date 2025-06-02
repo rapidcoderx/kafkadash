@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kafkadash-config
+  namespace: default
+  labels:
+    app: kafkadash
+    version: v1.0.0
+data:
+  # Server Configuration
+  PORT: "4010"
+  UI_PREFIX: "/kafka"
+  API_PREFIX: "/api/v1"
+  NODE_ENV: "production"
+  
+  # Kafka Configuration
+  KAFKA_CLIENT_ID: "kafkadash-k8s"
+  KAFKA_CONSUMER_GROUP: "kafkadash-consumer-group"
+  
+  # Logging Configuration
+  LOG_LEVEL: "info"
+  LOG_FILE_PATH: "logs"
+  
+  # Application Configuration
+  CACHE_TTL: "30000"
+  MAX_MESSAGES_PER_TOPIC: "5"
+  REQUEST_TIMEOUT: "5000"
+  CONNECTION_TIMEOUT: "3000"

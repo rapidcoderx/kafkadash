@@ -1,0 +1,605 @@
+---
+# Kafka KRaft Mode Deployment - All-in-One
+# This file contains all resources needed to deploy Kafka in KRaft mode
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kafka
+  labels:
+    app: kafka
+    mode: kraft
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kafka-config
+  namespace: kafka
+  labels:
+    app: kafka
+    component: config
+data:
+  # Server properties for KRaft mode
+  server.properties: |
+    # Licensed to the Apache Software Foundation (ASF) under one or more
+    # contributor license agreements.  See the NOTICE file distributed with
+    # this work for additional information regarding copyright ownership.
+    # The ASF licenses this file to You under the Apache License, Version 2.0
+    # (the "License"); you may not use this file except in compliance with
+    # the License.  You may obtain a copy of the License at
+    #
+    #    http://www.apache.org/licenses/LICENSE-2.0
+    #
+    # Unless required by applicable law or agreed to in writing, software
+    # distributed under the License is distributed on an "AS IS" BASIS,
+    # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    # See the License for the specific language governing permissions and
+    # limitations under the License.
+
+    #
+    # This configuration file is intended for use in KRaft mode, where
+    # Apache Kafka operates without Apache Zookeeper.
+    #
+
+    # The role of this server. Setting this puts us in KRaft mode
+    process.roles=broker,controller
+
+    # The node id associated with this instance's roles
+    node.id=1
+
+    # The connect string for the controller quorum
+    controller.quorum.voters=1@kafka-service:9093
+
+    ############################# Socket Server Settings #############################
+
+    # The address the socket server listens on. If not configured, the host name will be equal to the value of
+    # java.net.InetAddress.getCanonicalHostName(), with PLAINTEXT listener name, and port 9092.
+    #   FORMAT:
+    #     listeners = listener_name://host_name:port
+    #   EXAMPLE:
+    #     listeners = PLAINTEXT://your.host.name:9092
+    listeners=PLAINTEXT://:9092,CONTROLLER://:9093
+
+    # Listener name, hostname and port the broker will advertise to clients.
+    # If not set, it uses the value for "listeners".
+    advertised.listeners=PLAINTEXT://kafka-service:9092
+
+    # Maps listener names to security protocols, the default is for them to be the same. See the config documentation for more details
+    listener.security.protocol.map=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL
+
+    # The number of threads that the server uses for receiving requests from the network and sending responses to the network
+    num.network.threads=3
+
+    # The number of threads that the server uses for processing requests, which may include disk I/O
+    num.io.threads=8
+
+    # The send buffer (SO_SNDBUF) used by the socket server
+    socket.send.buffer.bytes=102400
+
+    # The receive buffer (SO_RCVBUF) used by the socket server
+    socket.receive.buffer.bytes=102400
+
+    # The maximum size of a request that the socket server will accept (protection against OOM)
+    socket.request.max.bytes=104857600
+
+    ############################# Log Basics #############################
+
+    # A comma separated list of directories under which to store log files
+    log.dirs=/var/lib/kafka/data
+
+    # The default number of log partitions per topic. More partitions allow greater
+    # parallelism for consumption, but this will also result in more files across
+    # the brokers.
+    num.partitions=3
+
+    # The number of threads per data directory to be used for log recovery at startup and flushing at shutdown.
+    # This value is recommended to be increased for installations with data dirs located in RAID array.
+    num.recovery.threads.per.data.dir=1
+
+    ############################# Internal Topic Settings  #############################
+    # The replication factor for the group metadata internal topics "__consumer_offsets" and "__transaction_state"
+    # For anything other than development testing, a value greater than 1 is recommended to ensure availability such as 3.
+    offsets.topic.replication.factor=1
+    transaction.state.log.replication.factor=1
+    transaction.state.log.min.isr=1
+
+    ############################# Log Flush Policy #############################
+
+    # Messages are immediately written to the filesystem but by default we only fsync() to sync
+    # the OS cache lazily. The following configurations control the flush of data to disk.
+    # There are a few important trade-offs here:
+    #    1. Durability: Unflushed data may be lost if you are not using replication.
+    #    2. Latency: Very large flush intervals may lead to latency spikes when the flush does occur as there will be a lot of data to flush.
+    #    3. Throughput: The flush is generally the most expensive operation, and a small flush interval may lead to excessive seeks.
+    # The settings below allow one to configure the flush policy to flush data after a period of time or
+    # every N messages (or both). This can be done globally and overridden on a per-topic basis.
+
+    # The number of messages to accept before forcing a flush of data to disk
+    #log.flush.interval.messages=10000
+
+    # The maximum amount of time a message can sit in a log before we force a flush
+    #log.flush.interval.ms=1000
+
+    ############################# Log Retention Policy #############################
+
+    # The following configurations control the disposal of log segments. The policy can
+    # be set to delete segments after a period of time, or after a given size has accumulated.
+    # A segment will be deleted whenever *either* of these criteria are met. Deletion always happens
+    # from the end of the log.
+
+    # The minimum age of a log file to be eligible for deletion due to age
+    log.retention.hours=168
+
+    # A size-based retention policy for logs. Segments are removed when the log size is greater than this.
+    #log.retention.bytes=1073741824
+
+    # The maximum size of a log segment file. When this size is reached a new log segment will be created.
+    log.segment.bytes=1073741824
+
+    # The interval at which to check whether any logs need to be deleted.
+    log.retention.check.interval.ms=300000
+
+    ############################# Controller Settings #############################
+    # The number of threads to use for various background tasks
+    background.threads=10
+
+    # The number of threads to use for the log cleaner. Used when log.cleanup.policy=compact
+    log.cleaner.threads=1
+
+    ############################# Group Coordinator Settings #############################
+
+    # The following configuration specifies the time, in milliseconds, that the GroupCoordinator will delay the initial consumer rebalance.
+    # The rebalance will be further delayed by the value of group.initial.rebalance.delay.ms as new members join the group, up to a maximum of max.poll.interval.ms.
+    # The default value for this is 0 ms.
+    # During development and testing it might be desirable to set this to a larger value as this will avoid unnecessary rebalances during application startup.
+    group.initial.rebalance.delay.ms=0
+
+    ############################# Auto Topic Creation #############################
+    # Enable auto creation of topic on the server
+    auto.create.topics.enable=true
+
+    # Default replication factor for automatically created topics
+    default.replication.factor=1
+
+    ############################# Metrics Settings #############################
+    # Enable/disable JMX reporting
+    jmx.port=9999
+
+  # Log4j configuration
+  log4j.properties: |
+    # Licensed to the Apache Software Foundation (ASF) under one or more
+    # contributor license agreements.  See the NOTICE file distributed with
+    # this work for additional information regarding copyright ownership.
+    # The ASF licenses this file to You under the Apache License, Version 2.0
+    # (the "License"); you may not use this file except in compliance with
+    # the License.  You may obtain a copy of the License at
+    #
+    #    http://www.apache.org/licenses/LICENSE-2.0
+    #
+    # Unless required by applicable law or agreed to in writing, software
+    # distributed under the License is distributed on an "AS IS" BASIS,
+    # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    # See the License for the specific language governing permissions and
+    # limitations under the License.
+
+    # Unspecified loggers and loggers with additivity=true output to server.log and stdout
+    # Note that INFO only applies to unspecified loggers, the log level of the child logger is used otherwise
+    log4j.rootLogger=INFO, stdout, kafkaAppender
+
+    log4j.appender.stdout=org.apache.log4j.ConsoleAppender
+    log4j.appender.stdout.layout=org.apache.log4j.PatternLayout
+    log4j.appender.stdout.layout.ConversionPattern=[%d] %p %m (%c)%n
+
+    log4j.appender.kafkaAppender=org.apache.log4j.DailyRollingFileAppender
+    log4j.appender.kafkaAppender.DatePattern='.'yyyy-MM-dd-HH
+    log4j.appender.kafkaAppender.File=/var/log/kafka/server.log
+    log4j.appender.kafkaAppender.layout=org.apache.log4j.PatternLayout
+    log4j.appender.kafkaAppender.layout.ConversionPattern=[%d] %p %m (%c)%n
+
+    log4j.appender.stateChangeAppender=org.apache.log4j.DailyRollingFileAppender
+    log4j.appender.stateChangeAppender.DatePattern='.'yyyy-MM-dd-HH
+    log4j.appender.stateChangeAppender.File=/var/log/kafka/state-change.log
+    log4j.appender.stateChangeAppender.layout=org.apache.log4j.PatternLayout
+    log4j.appender.stateChangeAppender.layout.ConversionPattern=[%d] %p %m (%c)%n
+
+    log4j.appender.requestAppender=org.apache.log4j.DailyRollingFileAppender
+    log4j.appender.requestAppender.DatePattern='.'yyyy-MM-dd-HH
+    log4j.appender.requestAppender.File=/var/log/kafka/kafka-request.log
+    log4j.appender.requestAppender.layout=org.apache.log4j.PatternLayout
+    log4j.appender.requestAppender.layout.ConversionPattern=[%d] %p %m (%c)%n
+
+    log4j.appender.cleanerAppender=org.apache.log4j.DailyRollingFileAppender
+    log4j.appender.cleanerAppender.DatePattern='.'yyyy-MM-dd-HH
+    log4j.appender.cleanerAppender.File=/var/log/kafka/log-cleaner.log
+    log4j.appender.cleanerAppender.layout=org.apache.log4j.PatternLayout
+    log4j.appender.cleanerAppender.layout.ConversionPattern=[%d] %p %m (%c)%n
+
+    log4j.appender.controllerAppender=org.apache.log4j.DailyRollingFileAppender
+    log4j.appender.controllerAppender.DatePattern='.'yyyy-MM-dd-HH
+    log4j.appender.controllerAppender.File=/var/log/kafka/controller.log
+    log4j.appender.controllerAppender.layout=org.apache.log4j.PatternLayout
+    log4j.appender.controllerAppender.layout.ConversionPattern=[%d] %p %m (%c)%n
+
+    log4j.appender.authorizerAppender=org.apache.log4j.DailyRollingFileAppender
+    log4j.appender.authorizerAppender.DatePattern='.'yyyy-MM-dd-HH
+    log4j.appender.authorizerAppender.File=/var/log/kafka/kafka-authorizer.log
+    log4j.appender.authorizerAppender.layout=org.apache.log4j.PatternLayout
+    log4j.appender.authorizerAppender.layout.ConversionPattern=[%d] %p %m (%c)%n
+
+    # Change the two lines below to adjust ZK client logging
+    log4j.logger.org.I0Itec.zkclient.ZkClient=INFO
+    log4j.logger.org.apache.zookeeper=INFO
+
+    # Change the two lines below to adjust the general broker logging level (output to server.log and stdout)
+    log4j.logger.kafka=INFO
+    log4j.logger.org.apache.kafka=INFO
+
+    # Change to DEBUG or TRACE to enable request logging
+    log4j.logger.kafka.request.logger=WARN, requestAppender
+    log4j.additivity.kafka.request.logger=false
+
+    # Uncomment the lines below and change log4j.logger.kafka.network.RequestChannel$ to TRACE for additional output
+    # related to the handling of requests
+    #log4j.logger.kafka.network.Processor=TRACE, requestAppender
+    #log4j.logger.kafka.server.KafkaApis=TRACE, requestAppender
+    #log4j.additivity.kafka.server.KafkaApis=false
+    log4j.logger.kafka.network.RequestChannel$=WARN, requestAppender
+    log4j.additivity.kafka.network.RequestChannel$=false
+
+    log4j.logger.kafka.controller=TRACE, controllerAppender
+    log4j.additivity.kafka.controller=false
+
+    log4j.logger.kafka.log.LogCleaner=INFO, cleanerAppender
+    log4j.additivity.kafka.log.LogCleaner=false
+
+    log4j.logger.state.change.logger=TRACE, stateChangeAppender
+    log4j.additivity.state.change.logger=false
+
+    # Access denials are logged at INFO level, change to DEBUG to also log allowed accesses
+    log4j.logger.kafka.authorizer.logger=INFO, authorizerAppender
+    log4j.additivity.kafka.authorizer.logger=false
+
+  # Startup script
+  start-kafka.sh: |
+    #!/bin/bash
+    set -e
+
+    echo "Starting Kafka in KRaft mode..."
+
+    # Set KAFKA_HOME
+    export KAFKA_HOME=/opt/kafka
+
+    # Generate cluster UUID if not exists
+    if [ ! -f /var/lib/kafka/cluster-id ]; then
+        echo "Generating new cluster UUID..."
+        $KAFKA_HOME/bin/kafka-storage.sh random-uuid > /var/lib/kafka/cluster-id
+    fi
+
+    export KAFKA_CLUSTER_ID=$(cat /var/lib/kafka/cluster-id)
+    echo "Using cluster ID: $KAFKA_CLUSTER_ID"
+
+    # Format storage if not already formatted
+    if [ ! -f /var/lib/kafka/data/meta.properties ]; then
+        echo "Formatting Kafka storage..."
+        $KAFKA_HOME/bin/kafka-storage.sh format -t $KAFKA_CLUSTER_ID -c $KAFKA_HOME/config/kraft/server.properties
+    fi
+
+    echo "Starting Kafka server..."
+    exec $KAFKA_HOME/bin/kafka-server-start.sh $KAFKA_HOME/config/kraft/server.properties
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: kafka-data-pvc
+  namespace: kafka
+  labels:
+    app: kafka
+    component: storage
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: standard  # Update with your storage class
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-service
+  namespace: kafka
+  labels:
+    app: kafka
+    component: service
+spec:
+  type: ClusterIP
+  ports:
+  - name: kafka
+    port: 9092
+    targetPort: 9092
+    protocol: TCP
+  - name: controller
+    port: 9093
+    targetPort: 9093
+    protocol: TCP
+  - name: jmx
+    port: 9999
+    targetPort: 9999
+    protocol: TCP
+  selector:
+    app: kafka
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-external
+  namespace: kafka
+  labels:
+    app: kafka
+    component: external-service
+spec:
+  type: LoadBalancer  # Change to NodePort if LoadBalancer is not available
+  ports:
+  - name: kafka
+    port: 9092
+    targetPort: 9092
+    protocol: TCP
+    # nodePort: 30092  # Uncomment if using NodePort
+  selector:
+    app: kafka
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka
+  namespace: kafka
+  labels:
+    app: kafka
+    component: broker
+spec:
+  replicas: 1  # For single-node KRaft setup
+  selector:
+    matchLabels:
+      app: kafka
+  template:
+    metadata:
+      labels:
+        app: kafka
+      annotations:
+        checksum/config: "{{ include (print $.Template.BasePath \"/configmap.yaml\") . | sha256sum }}"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+      - name: kafka
+        image: confluentinc/cp-kafka:7.5.0  # Use latest stable version
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: kafka
+          containerPort: 9092
+          protocol: TCP
+        - name: controller
+          containerPort: 9093
+          protocol: TCP
+        - name: jmx
+          containerPort: 9999
+          protocol: TCP
+        env:
+        # Kafka environment variables
+        - name: KAFKA_NODE_ID
+          value: "1"
+        - name: KAFKA_PROCESS_ROLES
+          value: "broker,controller"
+        - name: KAFKA_CONTROLLER_QUORUM_VOTERS
+          value: "1@kafka-service:9093"
+        - name: KAFKA_LISTENERS
+          value: "PLAINTEXT://:9092,CONTROLLER://:9093"
+        - name: KAFKA_ADVERTISED_LISTENERS
+          value: "PLAINTEXT://kafka-service:9092"
+        - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
+          value: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT"
+        - name: KAFKA_LOG_DIRS
+          value: "/var/lib/kafka/data"
+        - name: KAFKA_NUM_PARTITIONS
+          value: "3"
+        - name: KAFKA_DEFAULT_REPLICATION_FACTOR
+          value: "1"
+        - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
+          value: "1"
+        - name: KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR
+          value: "1"
+        - name: KAFKA_TRANSACTION_STATE_LOG_MIN_ISR
+          value: "1"
+        - name: KAFKA_AUTO_CREATE_TOPICS_ENABLE
+          value: "true"
+        - name: KAFKA_LOG_RETENTION_HOURS
+          value: "168"
+        - name: KAFKA_LOG_SEGMENT_BYTES
+          value: "1073741824"
+        - name: KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS
+          value: "300000"
+        - name: KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS
+          value: "0"
+        - name: KAFKA_JMX_PORT
+          value: "9999"
+        - name: KAFKA_JMX_HOSTNAME
+          value: "localhost"
+        # Heap size configuration
+        - name: KAFKA_HEAP_OPTS
+          value: "-Xmx1G -Xms1G"
+        # JVM performance options
+        - name: KAFKA_JVM_PERFORMANCE_OPTS
+          value: "-server -XX:+UseG1GC -XX:MaxGCPauseMillis=20 -XX:InitiatingHeapOccupancyPercent=35 -XX:+ExplicitGCInvokesConcurrent -XX:MaxInlineLevel=15 -Djava.awt.headless=true"
+        
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        
+        livenessProbe:
+          tcpSocket:
+            port: 9092
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+          successThreshold: 1
+        
+        readinessProbe:
+          tcpSocket:
+            port: 9092
+          initialDelaySeconds: 20
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
+          successThreshold: 1
+        
+        volumeMounts:
+        - name: kafka-data
+          mountPath: /var/lib/kafka/data
+        - name: kafka-logs
+          mountPath: /var/log/kafka
+        - name: kafka-config
+          mountPath: /etc/kafka
+        - name: tmp
+          mountPath: /tmp
+        
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          capabilities:
+            drop:
+            - ALL
+      
+      volumes:
+      - name: kafka-data
+        persistentVolumeClaim:
+          claimName: kafka-data-pvc
+      - name: kafka-logs
+        emptyDir: {}
+      - name: kafka-config
+        configMap:
+          name: kafka-config
+          defaultMode: 0755
+      - name: tmp
+        emptyDir: {}
+      
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+
+---
+# Optional: Kafka Manager/UI (AKHQ) for easier management
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-ui
+  namespace: kafka
+  labels:
+    app: kafka-ui
+    component: management
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka-ui
+  template:
+    metadata:
+      labels:
+        app: kafka-ui
+    spec:
+      containers:
+      - name: kafka-ui
+        image: provectuslabs/kafka-ui:latest
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        env:
+        - name: KAFKA_CLUSTERS_0_NAME
+          value: "kafka-kraft"
+        - name: KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS
+          value: "kafka-service:9092"
+        - name: KAFKA_CLUSTERS_0_METRICS_PORT
+          value: "9999"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-ui-service
+  namespace: kafka
+  labels:
+    app: kafka-ui
+    component: management-service
+spec:
+  type: LoadBalancer  # Change to NodePort or ClusterIP as needed
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+    protocol: TCP
+    # nodePort: 30080  # Uncomment if using NodePort
+  selector:
+    app: kafka-ui
+
+---
+# Optional: NetworkPolicy for security
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: kafka-network-policy
+  namespace: kafka
+spec:
+  podSelector:
+    matchLabels:
+      app: kafka
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: default  # Allow access from default namespace
+    - namespaceSelector:
+        matchLabels:
+          name: kafka
+    ports:
+    - protocol: TCP
+      port: 9092
+    - protocol: TCP
+      port: 9093
+    - protocol: TCP
+      port: 9999
+  egress:
+  - {}  # Allow all egress traffic

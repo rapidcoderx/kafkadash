@@ -1,0 +1,116 @@
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: kafkadash-vs
+  namespace: default
+  labels:
+    app: kafkadash
+    version: v1.0.0
+spec:
+  hosts:
+  - kafkadash.local  # Update with your actual domain
+  # - kafkadash.example.com  # Add additional hosts as needed
+  gateways:
+  - kafkadash-gateway
+  http:
+  - match:
+    - uri:
+        prefix: /kafka/dashboard
+    - uri:
+        prefix: /api/v1
+    route:
+    - destination:
+        host: kafkadash-service.default.svc.cluster.local
+        port:
+          number: 80
+    timeout: 30s
+    retries:
+      attempts: 3
+      perTryTimeout: 10s
+      retryOn: 5xx,reset,connect-failure,refused-stream
+    headers:
+      request:
+        set:
+          x-forwarded-proto: "https"
+          x-forwarded-port: "443"
+        add:
+          x-custom-header: "kafkadash-istio"
+  - match:
+    - uri:
+        prefix: /
+    redirect:
+      uri: /kafka/dashboard
+    headers:
+      request:
+        add:
+          x-redirect-from: "root"
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: kafkadash-gateway
+  namespace: default
+  labels:
+    app: kafkadash
+    version: v1.0.0
+spec:
+  selector:
+    istio: ingressgateway  # Use default Istio ingress gateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - kafkadash.local  # Update with your actual domain
+    # Redirect HTTP to HTTPS
+    tls:
+      httpsRedirect: true
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    hosts:
+    - kafkadash.local  # Update with your actual domain
+    tls:
+      mode: SIMPLE  # Update to MUTUAL for mutual TLS
+      credentialName: kafkadash-tls-secret  # Reference to TLS secret
+
+---
+# Optional: DestinationRule for advanced traffic policies
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: kafkadash-dr
+  namespace: default
+  labels:
+    app: kafkadash
+    version: v1.0.0
+spec:
+  host: kafkadash-service.default.svc.cluster.local
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: 100
+      http:
+        http1MaxPendingRequests: 50
+        http2MaxRequests: 100
+        maxRequestsPerConnection: 50
+        maxRetries: 3
+        consecutiveGatewayErrors: 5
+        interval: 30s
+        baseEjectionTime: 30s
+        maxEjectionPercent: 50
+    loadBalancer:
+      simple: LEAST_CONN
+    outlierDetection:
+      consecutiveGatewayErrors: 5
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 50
+      minHealthPercent: 50
+  subsets:
+  - name: v1
+    labels:
+      version: v1.0.0

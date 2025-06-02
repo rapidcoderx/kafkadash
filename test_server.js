@@ -17,7 +17,7 @@ setTimeout(() => {
     const options = {
         hostname: 'localhost',
         port: 4010,
-        path: '/api/v1/topics/test-topic/messages',
+        path: '/api/v1/topics/SBA/messages',
         method: 'GET',
         headers: {
             'Content-Type': 'application/json'

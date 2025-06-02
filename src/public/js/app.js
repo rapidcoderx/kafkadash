@@ -263,26 +263,111 @@ async function fetchClusterHealth() {
     }
 }
 
+// Generate a subtle color theme based on topic name
+function getTopicColorTheme(topicName) {
+    // Create a simple hash from the topic name for consistent color assignment
+    let hash = 0;
+    for (let i = 0; i < topicName.length; i++) {
+        const char = topicName.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash; // Convert to 32-bit integer
+    }
+    
+    // Define subtle color themes that work well in both light and dark modes
+    const colorThemes = [
+        {
+            // Soft Blue
+            bg: 'bg-blue-50 dark:bg-blue-900/20',
+            border: 'border-blue-200 dark:border-blue-800/50',
+            accent: 'bg-blue-100 dark:bg-blue-800/40',
+            accentText: 'text-blue-800 dark:text-blue-200',
+            icon: 'text-blue-500 dark:text-blue-400'
+        },
+        {
+            // Soft Green
+            bg: 'bg-emerald-50 dark:bg-emerald-900/20',
+            border: 'border-emerald-200 dark:border-emerald-800/50',
+            accent: 'bg-emerald-100 dark:bg-emerald-800/40',
+            accentText: 'text-emerald-800 dark:text-emerald-200',
+            icon: 'text-emerald-500 dark:text-emerald-400'
+        },
+        {
+            // Soft Purple
+            bg: 'bg-purple-50 dark:bg-purple-900/20',
+            border: 'border-purple-200 dark:border-purple-800/50',
+            accent: 'bg-purple-100 dark:bg-purple-800/40',
+            accentText: 'text-purple-800 dark:text-purple-200',
+            icon: 'text-purple-500 dark:text-purple-400'
+        },
+        {
+            // Soft Orange
+            bg: 'bg-orange-50 dark:bg-orange-900/20',
+            border: 'border-orange-200 dark:border-orange-800/50',
+            accent: 'bg-orange-100 dark:bg-orange-800/40',
+            accentText: 'text-orange-800 dark:text-orange-200',
+            icon: 'text-orange-500 dark:text-orange-400'
+        },
+        {
+            // Soft Teal
+            bg: 'bg-teal-50 dark:bg-teal-900/20',
+            border: 'border-teal-200 dark:border-teal-800/50',
+            accent: 'bg-teal-100 dark:bg-teal-800/40',
+            accentText: 'text-teal-800 dark:text-teal-200',
+            icon: 'text-teal-500 dark:text-teal-400'
+        },
+        {
+            // Soft Rose
+            bg: 'bg-rose-50 dark:bg-rose-900/20',
+            border: 'border-rose-200 dark:border-rose-800/50',
+            accent: 'bg-rose-100 dark:bg-rose-800/40',
+            accentText: 'text-rose-800 dark:text-rose-200',
+            icon: 'text-rose-500 dark:text-rose-400'
+        },
+        {
+            // Soft Amber
+            bg: 'bg-amber-50 dark:bg-amber-900/20',
+            border: 'border-amber-200 dark:border-amber-800/50',
+            accent: 'bg-amber-100 dark:bg-amber-800/40',
+            accentText: 'text-amber-800 dark:text-amber-200',
+            icon: 'text-amber-500 dark:text-amber-400'
+        },
+        {
+            // Soft Cyan
+            bg: 'bg-cyan-50 dark:bg-cyan-900/20',
+            border: 'border-cyan-200 dark:border-cyan-800/50',
+            accent: 'bg-cyan-100 dark:bg-cyan-800/40',
+            accentText: 'text-cyan-800 dark:text-cyan-200',
+            icon: 'text-cyan-500 dark:text-cyan-400'
+        }
+    ];
+    
+    // Select theme based on hash
+    const themeIndex = Math.abs(hash) % colorThemes.length;
+    return colorThemes[themeIndex];
+}
+
 // Topic card creation
 function createTopicCard(topic) {
+    const colorTheme = getTopicColorTheme(topic.name);
+    
     return `
-        <div class="bg-white dark:bg-slate-800 rounded-lg shadow-sm hover:shadow-md dark:shadow-slate-900/30 p-6 transform transition-all duration-300 hover:scale-105 border border-gray-200 dark:border-slate-700">
+        <div class="${colorTheme.bg} rounded-lg shadow-sm hover:shadow-md dark:shadow-slate-900/30 p-6 transform transition-all duration-300 hover:scale-105 border ${colorTheme.border}">
             <div class="flex justify-between items-start mb-4">
                 <h3 class="text-lg font-semibold text-gray-900 dark:text-slate-100">${topic.name}</h3>
-                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorTheme.accent} ${colorTheme.accentText}">
                     ${topic.partitions || 1} partition${(topic.partitions || 1) !== 1 ? 's' : ''}
                 </span>
             </div>
             <div class="space-y-3">
                 <div class="flex items-center text-sm text-gray-600 dark:text-slate-400">
-                    <i class="fas fa-layer-group mr-2 text-gray-400 dark:text-slate-500"></i>
+                    <i class="fas fa-layer-group mr-2 ${colorTheme.icon}"></i>
                     <span class="font-medium mr-1">Replication Factor:</span>
                     <span>${topic.replicationFactor || 1}</span>
                 </div>
                 <div class="flex items-center text-sm text-gray-600 dark:text-slate-400">
-                    <i class="fas fa-database mr-2 text-gray-400 dark:text-slate-500"></i>
+                    <i class="fas fa-database mr-2 ${colorTheme.icon}"></i>
                     <span class="font-medium mr-1">Total Messages:</span>
-                    <span>${topic.depth || 0}</span>
+                    <span class="font-semibold ${colorTheme.accentText}">${topic.depth || 0}</span>
                 </div>
             </div>
             <div class="mt-6 flex gap-2">

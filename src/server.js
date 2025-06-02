@@ -12,6 +12,17 @@ const port = process.env.PORT || 4010;
 // Store the Kafka start time consistently
 const KAFKA_START_TIME = Date.now() - (5 * 24 * 60 * 60 * 1000); // Fixed 5 days ago
 
+// Enhanced in-memory cache for topic messages with offset tracking
+const messageCache = new Map();
+const CACHE_TTL = 30000; // 30 seconds cache (longer since we check for changes)
+
+// Cache structure: 
+// {
+//   messages: [...],
+//   offsets: [{ partition: 0, high: '123' }, ...],
+//   timestamp: Date.now()
+// }
+
 // Configure Winston logger
 const logger = winston.createLogger({
     level: 'info',
@@ -245,6 +256,9 @@ app.get('/api/v1/cluster/health', async (req, res) => {
 });
 
 app.get('/api/v1/topics/:topic/messages', async (req, res) => {
+    const startTime = Date.now();
+    const topicName = req.params.topic;
+    
     try {
         const kafka = new Kafka({
             clientId: 'kafka-dashboard-messages',
@@ -262,10 +276,10 @@ app.get('/api/v1/topics/:topic/messages', async (req, res) => {
         
         let topicOffsets;
         try {
-            topicOffsets = await admin.fetchTopicOffsets(req.params.topic);
+            topicOffsets = await admin.fetchTopicOffsets(topicName);
         } catch (offsetError) {
             await admin.disconnect();
-            logger.error(`Topic ${req.params.topic} not found:`, offsetError);
+            logger.error(`Topic ${topicName} not found:`, offsetError);
             return res.status(404).json({ error: 'Topic not found', messages: [] });
         }
         
@@ -275,52 +289,99 @@ app.get('/api/v1/topics/:topic/messages', async (req, res) => {
         const totalMessages = topicOffsets.reduce((sum, partition) => sum + Number(partition.high), 0);
         
         if (totalMessages === 0) {
-            return res.json([]);
+            logger.info(`No messages in topic ${topicName}`);
+            const emptyResult = [];
+            // Cache empty result with current offsets
+            const cacheKey = `messages:${topicName}`;
+            messageCache.set(cacheKey, { 
+                messages: emptyResult, 
+                offsets: topicOffsets,
+                timestamp: Date.now() 
+            });
+            return res.json(emptyResult);
         }
 
-        logger.info(`Topic ${req.params.topic} has ${totalMessages} total messages across ${topicOffsets.length} partitions`);
+        logger.info(`Topic ${topicName} has ${totalMessages} total messages across ${topicOffsets.length} partitions`);
 
-        // Create consumer with a unique group ID for reading existing messages
+        // Smart cache check: Compare current offsets with cached offsets
+        const cacheKey = `messages:${topicName}`;
+        const cached = messageCache.get(cacheKey);
+        
+        if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
+            // Check if offsets have changed
+            const offsetsChanged = !cached.offsets || 
+                cached.offsets.length !== topicOffsets.length ||
+                cached.offsets.some((cachedOffset, index) => {
+                    const currentOffset = topicOffsets.find(o => o.partition === cachedOffset.partition);
+                    return !currentOffset || currentOffset.high !== cachedOffset.high;
+                });
+            
+            if (!offsetsChanged) {
+                const duration = Date.now() - startTime;
+                logger.info(`No offset changes detected for topic ${topicName}, returning cached ${cached.messages.length} messages in ${duration}ms`);
+                return res.json(cached.messages);
+            } else {
+                logger.info(`Offset changes detected for topic ${topicName}, refreshing cache`);
+            }
+        }
+
+        // Offsets have changed or no valid cache, fetch fresh messages
+        const randomGroupId = `kafka-dashboard-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        
         const consumer = kafka.consumer({ 
-            groupId: `kafka-dashboard-reader-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            sessionTimeout: 30000,
+            groupId: randomGroupId,
+            sessionTimeout: 10000,
             heartbeatInterval: 3000,
             maxWaitTimeInMs: 1000,
-            fromBeginning: true, // Read from beginning to get existing messages
             allowAutoTopicCreation: false,
             retry: {
                 initialRetryTime: 100,
-                retries: 2
+                retries: 1
             }
         });
         
         const messages = [];
-        const maxMessages = 10;
         let consumerConnected = false;
         
         try {
             await consumer.connect();
             consumerConnected = true;
-            logger.info(`Consumer connected for topic ${req.params.topic}`);
+            logger.info(`Consumer connected for topic ${topicName} with group ${randomGroupId}`);
             
-            await consumer.subscribe({ topic: req.params.topic, fromBeginning: true });
-            logger.info(`Consumer subscribed to topic ${req.params.topic}`);
-            
+            // Subscribe with fromBeginning explicitly set
+            await consumer.subscribe({ topics: [topicName], fromBeginning: true });
+            logger.info(`Consumer subscribed to topic ${topicName} from beginning`);
+
             let messageCount = 0;
             let finished = false;
-            const maxDuration = 5000; // 5 seconds timeout
+            const maxDuration = 4000; // 4 seconds timeout
+            const maxMessages = Math.min(totalMessages, 20); // Don't read more than what exists
             
-            await new Promise((resolve, reject) => {
+            logger.info(`Starting to read up to ${maxMessages} messages from topic ${topicName}`);
+
+            const runPromise = new Promise((resolve, reject) => {
+                let consumerRunning = false;
+                
                 const timeout = setTimeout(() => {
                     if (!finished) {
                         finished = true;
-                        logger.info(`Timeout reached, collected ${messageCount} messages`);
+                        logger.info(`Timeout reached after 4s, collected ${messageCount} messages`);
                         resolve();
                     }
                 }, maxDuration);
                 
+                const earlyExit = setTimeout(() => {
+                    if (!finished && messageCount === 0 && consumerRunning) {
+                        finished = true;
+                        clearTimeout(timeout);
+                        logger.info('No messages received after 2s, stopping early');
+                        resolve();
+                    }
+                }, 2000);
+                
                 consumer.run({
                     eachMessage: async ({ topic, partition, message }) => {
+                        consumerRunning = true;
                         if (finished) return;
                         
                         try {
@@ -340,7 +401,8 @@ app.get('/api/v1/topics/:topic/messages', async (req, res) => {
                                 if (!finished) {
                                     finished = true;
                                     clearTimeout(timeout);
-                                    logger.info(`Collected ${messageCount} messages, stopping collection`);
+                                    clearTimeout(earlyExit);
+                                    logger.info(`Collected all ${messageCount} messages, stopping`);
                                     resolve();
                                 }
                             }
@@ -352,11 +414,14 @@ app.get('/api/v1/topics/:topic/messages', async (req, res) => {
                     if (!finished) {
                         finished = true;
                         clearTimeout(timeout);
+                        clearTimeout(earlyExit);
                         logger.error('Consumer run error:', runError.message);
                         reject(runError);
                     }
                 });
             });
+
+            await runPromise;
             
         } catch (consumerError) {
             logger.error('Consumer error:', consumerError.message);
@@ -365,29 +430,57 @@ app.get('/api/v1/topics/:topic/messages', async (req, res) => {
             // Cleanup consumer with better error handling
             if (consumerConnected) {
                 try {
-                    logger.info('Cleaning up consumer...');
+                    logger.info('Stopping consumer...');
+                    await consumer.stop();
+                    logger.info('Disconnecting consumer...');
                     await consumer.disconnect();
-                    logger.info('Consumer disconnected successfully');
+                    logger.info('Consumer cleanup completed');
+                    
+                    // Delete the consumer group to ensure fresh reads next time
+                    try {
+                        const adminCleanup = kafka.admin();
+                        await adminCleanup.connect();
+                        await adminCleanup.deleteGroups([randomGroupId]);
+                        await adminCleanup.disconnect();
+                        logger.info(`Deleted consumer group ${randomGroupId}`);
+                    } catch (deleteError) {
+                        logger.warn('Could not delete consumer group (non-critical):', deleteError.message);
+                    }
                 } catch (cleanupError) {
-                    logger.warn('Error during consumer cleanup (non-critical):', cleanupError.message);
-                    // Don't throw cleanup errors, just log them
+                    logger.warn('Consumer cleanup error (non-critical):', cleanupError.message);
+                    // Force close if normal cleanup fails
+                    try {
+                        await consumer.disconnect();
+                    } catch (forceError) {
+                        logger.warn('Force disconnect error:', forceError.message);
+                    }
                 }
             }
         }
 
-        // Sort messages by timestamp (newest first) and limit to maxMessages
+        // Sort messages by timestamp (newest first) and limit to 5 for better performance
         const sortedMessages = messages
             .sort((a, b) => {
                 const timeA = a.timestamp ? parseInt(a.timestamp) : 0;
                 const timeB = b.timestamp ? parseInt(b.timestamp) : 0;
                 return timeB - timeA;
             })
-            .slice(0, maxMessages);
+            .slice(0, 5); // Keep only last 5 messages
 
-        logger.info(`Returning ${sortedMessages.length} messages for topic ${req.params.topic}`);
+        // Cache the result with current offsets
+        messageCache.set(cacheKey, { 
+            messages: sortedMessages, 
+            offsets: topicOffsets,
+            timestamp: Date.now() 
+        });
+
+        const duration = Date.now() - startTime;
+        logger.info(`Returning ${sortedMessages.length} messages for topic ${topicName} in ${duration}ms (cache updated)`);
         res.json(sortedMessages);
+        
     } catch (error) {
-        logger.error('Error fetching messages:', error);
+        const duration = Date.now() - startTime;
+        logger.error(`Error fetching messages after ${duration}ms:`, error);
         res.status(500).json({ error: 'Failed to fetch messages', messages: [] });
     }
 });
@@ -431,6 +524,17 @@ app.use((err, req, res, next) => {
     res.status(500).json({ error: 'Internal server error' });
 });
 
+// Clean up expired cache entries periodically
+setInterval(() => {
+    const now = Date.now();
+    for (const [key, value] of messageCache.entries()) {
+        if (now - value.timestamp > CACHE_TTL) {
+            messageCache.delete(key);
+            logger.info(`Cleaned up expired cache entry for ${key}`);
+        }
+    }
+}, CACHE_TTL);
+
 app.listen(port, () => {
     logger.info(`Server running on port ${port}`);
-}); 
+});
