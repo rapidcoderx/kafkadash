@@ -1,73 +1,55 @@
 # Kafka Dashboard
 
-A modern, responsive Kafka dashboard built with Node.js and Tailwind CSS.
+A modern, real-time dashboard for monitoring Apache Kafka topics, messages, and consumer groups. Built with Node.js, Express, and Tailwind CSS.
 
 ## Features
 
-- Modern, responsive UI with dark mode support
-- Real-time topic monitoring
-- Topic details with message preview
-- Consumer group information
-- Auto-refresh toggle
-- Winston logging
-- API prefix support
+- 🎨 Modern UI with dark/light theme support
+- 🔄 Real-time topic monitoring with auto-refresh
+- 📊 Topic details including message depth and partition count
+- 👥 Consumer group monitoring
+- 🔍 Message inspection with key-value pairs
+- 🎯 Responsive design for all screen sizes
+- 🔒 Secure with Content Security Policy (CSP)
 
-## Project Structure
-
-```
-kafkadash/
-├── src/
-│   ├── public/
-│   │   ├── js/
-│   │   │   └── app.js          # Frontend JavaScript
-│   │   └── index.html          # Main HTML file
-│   ├── services/
-│   │   └── kafkaService.js     # Kafka operations
-│   ├── utils/
-│   │   └── logger.js           # Winston logger
-│   └── server.js               # Express server
-├── .env                        # Environment configuration
-├── package.json                # Project dependencies
-└── README.md                   # Project documentation
-```
-
-## System Flow
+## System Architecture
 
 ```mermaid
-sequenceDiagram
-    participant Client
-    participant Server
-    participant Kafka
-    participant Logger
-
-    Client->>Server: Request Dashboard (/api/v1/dashboard)
-    Server->>Client: Serve HTML + JS
-
-    loop Auto Refresh (5s)
-        Client->>Server: GET /api/v1/topics
-        Server->>Kafka: List Topics
-        Kafka-->>Server: Topics Data
-        Server->>Logger: Log Operation
-        Server-->>Client: Topics List
+graph TD
+    subgraph Frontend
+        UI[Kafka Dashboard UI]
+        JS[app.js]
+        CSS[output.css]
     end
 
-    Client->>Server: GET /api/v1/topics/:topic/messages
-    Server->>Kafka: Fetch Messages
-    Kafka-->>Server: Topic Messages
-    Server->>Logger: Log Operation
-    Server-->>Client: Messages Data
+    subgraph Backend
+        Server[Express Server]
+        API[API Routes]
+        Kafka[Kafka Client]
+    end
 
-    Client->>Server: GET /api/v1/topics/:topic/consumers
-    Server->>Kafka: List Consumer Groups
-    Kafka-->>Server: Consumer Groups
-    Server->>Logger: Log Operation
-    Server-->>Client: Consumer Groups Data
+    subgraph Kafka Cluster
+        Topics[Kafka Topics]
+        Consumers[Consumer Groups]
+    end
+
+    UI --> JS
+    UI --> CSS
+    JS --> API
+    API --> Kafka
+    Kafka --> Topics
+    Kafka --> Consumers
+
+    style Frontend fill:#f9f,stroke:#333,stroke-width:2px
+    style Backend fill:#bbf,stroke:#333,stroke-width:2px
+    style Kafka fill:#bfb,stroke:#333,stroke-width:2px
 ```
 
 ## Prerequisites
 
 - Node.js >= 18.0.0
-- Kafka cluster running and accessible
+- Apache Kafka cluster
+- npm or yarn package manager
 
 ## Installation
 
@@ -82,48 +64,111 @@ cd kafkadash
 npm install
 ```
 
-3. Create a `.env` file in the root directory with the following content:
-```
-PORT=3000
-API_PREFIX=/api/v1
+3. Create a `.env` file in the root directory:
+```env
+PORT=4010
 KAFKA_BROKERS=localhost:9092
-NODE_ENV=development
 ```
 
-## Running the Application
+## Development
 
-Development mode:
+1. Start the development server:
 ```bash
 npm run dev
 ```
 
-Production mode:
+2. Build CSS (in a separate terminal):
+```bash
+npm run build:css
+```
+
+The dashboard will be available at `http://localhost:4010/kafka/dashboard`
+
+## Production Build
+
+1. Build the CSS:
+```bash
+npm run build
+```
+
+2. Start the server:
 ```bash
 npm start
 ```
 
-The dashboard will be available at `http://localhost:3000/api/v1/dashboard`
+## Project Structure
 
-## Available Scripts
-
-- `npm start`: Start the application in production mode
-- `npm run dev`: Start the application in development mode with hot reloading
-- `npm run check-updates`: Check for package updates
-- `npm run lint`: Run ESLint
-- `npm test`: Run tests
+```
+kafkadash/
+├── src/
+│   ├── public/
+│   │   ├── css/
+│   │   │   ├── styles.css
+│   │   │   └── output.css
+│   │   ├── js/
+│   │   │   └── app.js
+│   │   ├── index.html
+│   │   └── favicon.ico
+│   └── server.js
+├── .env
+├── .env.example
+├── .gitignore
+├── package.json
+├── tailwind.config.js
+└── README.md
+```
 
 ## API Endpoints
 
-- `GET /api/v1/health`: Health check endpoint
-- `GET /api/v1/dashboard`: Main dashboard page
-- `GET /api/v1/topics`: List all topics
-- `GET /api/v1/topics/:topic/messages`: Get recent messages for a topic
-- `GET /api/v1/topics/:topic/consumers`: Get consumer groups for a topic
+- `GET /api/v1/topics` - List all topics with details
+- `GET /api/v1/topics/:topic/messages` - Get recent messages for a topic
+- `GET /api/v1/topics/:topic/consumers` - Get consumer groups for a topic
+
+## Security Features
+
+- Content Security Policy (CSP) configured for:
+  - Script sources: self, unsafe-inline, cdn.tailwindcss.com, cdnjs.cloudflare.com
+  - Style sources: self, unsafe-inline, fonts.googleapis.com, cdnjs.cloudflare.com
+  - Font sources: self, fonts.gstatic.com, cdnjs.cloudflare.com
+- Proper MIME type handling for static files
+- CORS enabled
+- Helmet security headers
+
+## Recent Changes
+
+### UI/UX Improvements
+- Added dark/light theme toggle
+- Implemented auto-refresh functionality
+- Added loading states and error handling
+- Improved topic card design with hover effects
+- Added empty state handling for no topics
+
+### Security Enhancements
+- Implemented Content Security Policy
+- Added proper MIME type handling
+- Configured secure static file serving
+- Added error handling middleware
+
+### Performance Optimizations
+- Implemented proper caching headers
+- Added error recovery for Kafka connection issues
+- Optimized static file serving
+- Added proper null checks in frontend code
+
+### Bug Fixes
+- Fixed CSP violations for external resources
+- Resolved MIME type issues for static files
+- Fixed path issues for static assets
+- Improved error handling for empty topic lists
 
 ## Contributing
 
 1. Fork the repository
-2. Create your feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a new Pull Request 
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details. 

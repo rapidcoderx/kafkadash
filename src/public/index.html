@@ -4,37 +4,110 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kafka Dashboard</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="icon" type="image/x-icon" href="/kafka/dashboard/favicon.ico">
+    <link rel="stylesheet" href="/kafka/dashboard/css/output.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                    },
-                }
-            }
-        }
-    </script>
 </head>
 <body class="bg-gray-50 dark:bg-gray-900 font-sans">
     <div class="min-h-screen">
         <!-- Header -->
-        <header class="bg-white dark:bg-gray-800 shadow-sm">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-                <div class="flex justify-between items-center">
-                    <div>
-                        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Kafka Dashboard</h1>
-                        <p class="text-sm text-gray-500 dark:text-gray-400" id="kafka-info">Connecting to Kafka...</p>
+        <header class="bg-gradient-to-r from-indigo-600 to-purple-700 dark:from-slate-800 dark:to-slate-900 shadow-lg border-b-4 border-indigo-400 dark:border-slate-600">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+                <div class="flex justify-between items-start">
+                    <div class="space-y-3">
+                        <div class="flex items-center space-x-3">
+                            <div class="p-2 bg-white bg-opacity-20 rounded-lg">
+                                <i class="fas fa-server text-white text-2xl"></i>
+                            </div>
+                            <div>
+                                <h1 class="text-3xl font-bold text-white">Kafka Dashboard</h1>
+                                <p class="text-indigo-100 dark:text-slate-300 text-sm">Real-time Apache Kafka Monitoring</p>
+                            </div>
+                        </div>
+                        
+                        <div id="kafka-info" class="bg-white bg-opacity-10 rounded-lg p-4 backdrop-blur-sm">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="flex items-center space-x-2">
+                                    <i class="fas fa-circle text-yellow-400 animate-pulse"></i>
+                                    <span id="connection-status" class="text-indigo-50 dark:text-slate-100 font-medium">Connecting to Kafka...</span>
+                                </div>
+                                <div class="flex items-center space-x-3">
+                                    <div id="live-data-indicator" class="flex items-center">
+                                        <div class="w-3 h-3 bg-emerald-400 rounded-full animate-pulse"></div>
+                                    </div>
+                                    <button id="toggle-kafka-info" class="text-indigo-100 dark:text-slate-300 hover:text-white transition-colors duration-200" title="Toggle Details">
+                                        <i class="fas fa-chevron-up"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div id="kafka-info-details">
+                                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+                                <div class="flex items-center space-x-2 bg-white bg-opacity-10 rounded-md p-2">
+                                    <i class="fas fa-network-wired text-indigo-200 dark:text-slate-400"></i>
+                                    <div>
+                                        <div class="text-xs text-indigo-100 dark:text-slate-300 opacity-75">Dashboard</div>
+                                        <span id="host-info" class="text-indigo-50 dark:text-slate-100 font-medium">-</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="flex items-center space-x-2 bg-white bg-opacity-10 rounded-md p-2">
+                                    <i class="fas fa-plug text-indigo-200 dark:text-slate-400"></i>
+                                    <div>
+                                        <div class="text-xs text-indigo-100 dark:text-slate-300 opacity-75">Primary Broker</div>
+                                        <span id="broker-info" class="text-indigo-50 dark:text-slate-100 font-medium">-</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="flex items-center space-x-2 bg-white bg-opacity-10 rounded-md p-2">
+                                    <i class="fas fa-database text-indigo-200 dark:text-slate-400"></i>
+                                    <div>
+                                        <div class="text-xs text-indigo-100 dark:text-slate-300 opacity-75">Topics</div>
+                                        <span id="topic-count" class="text-indigo-50 dark:text-slate-100 font-medium">-</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="flex items-center space-x-2 bg-white bg-opacity-10 rounded-md p-2">
+                                    <i class="fas fa-clock text-indigo-200 dark:text-slate-400"></i>
+                                    <div>
+                                        <div class="text-xs text-indigo-100 dark:text-slate-300 opacity-75">Kafka Uptime</div>
+                                        <span id="uptime" class="text-indigo-50 dark:text-slate-100 font-medium">-</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Additional cluster information -->
+                            <div id="cluster-info" class="mt-3 pt-3 border-t border-white border-opacity-20 dark:border-slate-600">
+                                <div class="flex items-center justify-between text-xs">
+                                    <div class="flex items-center space-x-4">
+                                        <div class="flex items-center space-x-1">
+                                            <i class="fas fa-server text-indigo-200 dark:text-slate-400"></i>
+                                            <span id="cluster-id" class="text-indigo-100 dark:text-slate-300">Cluster: -</span>
+                                        </div>
+                                        <div class="flex items-center space-x-1">
+                                            <i class="fas fa-shield-alt text-indigo-200 dark:text-slate-400"></i>
+                                            <span id="controller-broker" class="text-indigo-100 dark:text-slate-300">Controller: -</span>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center space-x-1">
+                                        <div id="monitoring-status-dot" class="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
+                                        <span id="monitoring-status-text" class="text-indigo-100 dark:text-slate-300">Monitoring Active</span>
+                                    </div>
+                                </div>
+                            </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="flex items-center space-x-4">
-                        <button id="refresh-toggle" class="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700">
-                            Auto Refresh: ON
+                    
+                    <div class="flex items-center space-x-3">
+                        <button id="manual-refresh" class="p-3 rounded-lg text-white bg-white bg-opacity-20 hover:bg-opacity-30 transition-all duration-200 backdrop-blur-sm" title="Manual Refresh">
+                            <i class="fas fa-sync-alt"></i>
                         </button>
-                        <button id="theme-toggle" class="p-2 rounded-md text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700">
+                        <button id="auto-refresh-toggle" class="p-3 rounded-lg text-white bg-white bg-opacity-20 hover:bg-opacity-30 transition-all duration-200 backdrop-blur-sm" title="Auto Refresh: ON">
+                            <i class="fas fa-play"></i>
+                        </button>
+                        <button id="theme-toggle" class="p-3 rounded-lg text-white bg-white bg-opacity-20 hover:bg-opacity-30 transition-all duration-200 backdrop-blur-sm" title="Toggle Theme">
                             <i class="fas fa-moon"></i>
                         </button>
                     </div>
@@ -50,21 +123,51 @@
         </main>
 
         <!-- Topic Modal -->
-        <div id="topic-modal" class="hidden fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center">
-            <div class="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-2xl w-full mx-4">
+        <div id="topic-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 dark:bg-black dark:bg-opacity-80 flex items-center justify-center z-50">
+            <div class="bg-white dark:bg-slate-800 rounded-lg p-6 max-w-4xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-hidden">
                 <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-xl font-semibold text-gray-900 dark:text-white" id="modal-title"></h2>
-                    <button class="text-gray-400 hover:text-gray-500" onclick="closeModal()">
+                    <h2 class="text-xl font-semibold text-gray-900 dark:text-slate-100" id="modal-title"></h2>
+                    <button id="modal-close-btn" class="text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200 transition-colors">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
-                <div id="modal-content" class="space-y-4">
+                <div id="modal-content" class="space-y-4 overflow-y-auto max-h-[70vh]">
                     <!-- Modal content will be dynamically inserted here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Message Detail Modal -->
+        <div id="message-detail-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 dark:bg-black dark:bg-opacity-80 flex items-center justify-center z-[9999]">
+            <div class="bg-white dark:bg-slate-800 rounded-lg p-6 max-w-4xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-hidden">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-semibold text-gray-900 dark:text-slate-100" id="message-modal-title">Message Details</h2>
+                    <button id="message-modal-close-btn" class="text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200 transition-colors">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div id="message-modal-content" class="space-y-4 overflow-y-auto max-h-[70vh]">
+                    <!-- Message detail content will be dynamically inserted here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Consumers Modal -->
+        <div id="consumers-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 dark:bg-black dark:bg-opacity-80 flex items-center justify-center z-50">
+            <div class="bg-white dark:bg-slate-800 rounded-lg p-6 max-w-4xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-hidden">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-semibold text-gray-900 dark:text-slate-100" id="consumers-modal-title">Consumer Groups</h2>
+                    <button id="consumers-modal-close-btn" class="text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200 transition-colors">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div id="consumers-modal-content" class="space-y-4 overflow-y-auto max-h-[70vh]">
+                    <!-- Consumers content will be dynamically inserted here -->
                 </div>
             </div>
         </div>
     </div>
 
-    <script src="js/app.js"></script>
+    <script src="/kafka/dashboard/js/app.js"></script>
 </body>
 </html> 
