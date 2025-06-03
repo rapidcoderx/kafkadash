@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <defs>
+    <linearGradient id="kafkaGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4F46E5;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#7C3AED;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="16" cy="16" r="15" fill="url(#kafkaGradient)" stroke="#4F46E5" stroke-width="1"/>
+  
+  <!-- Kafka "K" with streaming lines -->
+  <g fill="white">
+    <!-- Main K structure -->
+    <rect x="7" y="8" width="2.5" height="16" rx="1"/>
+    <polygon points="10,14 16,8 19,8 19,11 13.5,16 19,21 19,24 16,24 10,18"/>
+    
+    <!-- Streaming lines (data flow) -->
+    <rect x="21" y="10" width="3" height="1.5" rx="0.75" opacity="0.8"/>
+    <rect x="22" y="13" width="4" height="1.5" rx="0.75" opacity="0.6"/>
+    <rect x="21" y="16" width="3.5" height="1.5" rx="0.75" opacity="0.8"/>
+    <rect x="22.5" y="19" width="2.5" height="1.5" rx="0.75" opacity="0.6"/>
+    <rect x="21" y="22" width="4" height="1.5" rx="0.75" opacity="0.4"/>
+  </g>
+</svg>

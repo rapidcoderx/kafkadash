@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Favicon Converter</title>
+</head>
+<body>
+    <h1>Kafka Favicon Preview</h1>
+    <p>Use this page to preview and convert SVG favicons to ICO format if needed.</p>
+    
+    <div style="display: flex; gap: 20px; align-items: center; margin: 20px 0;">
+        <div>
+            <h3>16x16</h3>
+            <img src="favicon-16.svg" width="16" height="16" style="border: 1px solid #ccc; padding: 5px;">
+        </div>
+        <div>
+            <h3>32x32</h3>
+            <img src="kafka-favicon.svg" width="32" height="32" style="border: 1px solid #ccc; padding: 5px;">
+        </div>
+        <div>
+            <h3>64x64</h3>
+            <img src="kafka-favicon-large.svg" width="64" height="64" style="border: 1px solid #ccc; padding: 5px;">
+        </div>
+    </div>
+    
+    <h2>Instructions for ICO Generation:</h2>
+    <ol>
+        <li>Right-click on any SVG favicon above</li>
+        <li>Select "Save As" and save as PNG</li>
+        <li>Use an online converter like <a href="https://favicon.io/favicon-converter/">favicon.io</a> to convert PNG to ICO</li>
+        <li>Replace the existing favicon.ico file</li>
+    </ol>
+    
+    <canvas id="canvas" width="32" height="32" style="display: none;"></canvas>
+    
+    <script>
+        // Simple SVG to canvas converter for generating ICO
+        function convertSvgToIco() {
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
+            
+            img.onload = function() {
+                ctx.drawImage(img, 0, 0, 32, 32);
+                const dataURL = canvas.toDataURL('image/png');
+                
+                // Create download link
+                const link = document.createElement('a');
+                link.download = 'kafka-favicon-32x32.png';
+                link.href = dataURL;
+                link.click();
+            };
+            
+            img.src = 'kafka-favicon.svg';
+        }
+        
+        // Add button to trigger conversion
+        const button = document.createElement('button');
+        button.textContent = 'Download 32x32 PNG';
+        button.onclick = convertSvgToIco;
+        button.style.cssText = 'padding: 10px 20px; background: #4F46E5; color: white; border: none; border-radius: 5px; cursor: pointer; margin: 10px 0;';
+        document.body.appendChild(button);
+    </script>
+</body>
+</html>

@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="kafkaGradientLarge" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4F46E5;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#6366F1;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#7C3AED;stop-opacity:1" />
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000000" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  
+  <!-- Background circle with shadow -->
+  <circle cx="32" cy="32" r="30" fill="url(#kafkaGradientLarge)" stroke="#4F46E5" stroke-width="2" filter="url(#shadow)"/>
+  
+  <!-- Kafka "K" with streaming elements -->
+  <g fill="white">
+    <!-- Main K structure -->
+    <rect x="14" y="16" width="5" height="32" rx="2"/>
+    <polygon points="20,28 32,16 38,16 38,22 26,32 38,42 38,48 32,48 20,36"/>
+    
+    <!-- Enhanced streaming lines (data flow) -->
+    <g opacity="0.9">
+      <rect x="42" y="18" width="6" height="2" rx="1"/>
+      <rect x="44" y="22" width="8" height="2" rx="1"/>
+      <rect x="42" y="26" width="7" height="2" rx="1"/>
+      <rect x="45" y="30" width="5" height="2" rx="1"/>
+      <rect x="42" y="34" width="8" height="2" rx="1"/>
+      <rect x="44" y="38" width="6" height="2" rx="1"/>
+      <rect x="42" y="42" width="7" height="2" rx="1"/>
+      <rect x="45" y="46" width="4" height="2" rx="1"/>
+    </g>
+    
+    <!-- Additional streaming dots for visual appeal -->
+    <g opacity="0.7">
+      <circle cx="52" cy="19" r="1" />
+      <circle cx="54" cy="23" r="1" />
+      <circle cx="51" cy="27" r="1" />
+      <circle cx="52" cy="31" r="1" />
+      <circle cx="54" cy="35" r="1" />
+      <circle cx="52" cy="39" r="1" />
+      <circle cx="51" cy="43" r="1" />
+      <circle cx="52" cy="47" r="1" />
+    </g>
+  </g>
+</svg>
