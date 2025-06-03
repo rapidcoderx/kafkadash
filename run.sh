@@ -11,9 +11,9 @@ NC='\033[0m' # No Color
 get_port_from_env() {
     if [ -f .env ]; then
         PORT=$(grep -E "^PORT=" .env | cut -d'=' -f2)
-        echo ${PORT:-3000}
+        echo ${PORT:-4010}
     else
-        echo "3000"
+        echo "4010"
     fi
 }
 
@@ -53,7 +53,7 @@ if [ ! -f .env ]; then
     echo "Creating .env file with default configuration..."
     cat > .env << EOL
 # Server Configuration
-PORT=3000
+PORT=4010
 UI_PREFIX=/kafka
 API_PREFIX=/api/v1
 NODE_ENV=development
@@ -80,6 +80,7 @@ fi
 echo -e "${BLUE}Starting Kafka Dashboard...${NC}"
 echo -e "${GREEN}Dashboard UI will be available at: http://localhost:${PORT}/kafka/dashboard${NC}"
 echo -e "${GREEN}API endpoints will be available at: http://localhost:${PORT}/api/v1${NC}"
+echo -e "${GREEN}API documentation will be available at: http://localhost:${PORT}/kafka/api-docs${NC}"
 echo -e "${BLUE}Press Ctrl+C to stop the application${NC}"
 echo ""
 

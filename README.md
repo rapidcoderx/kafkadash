@@ -7,8 +7,11 @@ A modern, real-time dashboard for monitoring Apache Kafka topics, messages, and 
 - 🎨 Modern UI with dark/light theme support
 - 🔄 Real-time topic monitoring with auto-refresh
 - 📊 Topic details including message depth and partition count
+- ➕ **Topic Creation** - Create new topics with configurable partitions and replication
+- 📧 Message production with headers support
 - 👥 Consumer group monitoring
 - 🔍 Message inspection with key-value pairs
+- 📖 **Interactive API Documentation** - Swagger/OpenAPI docs at `/api-docs`
 - 🎯 Responsive design for all screen sizes
 - 🔒 Secure with Content Security Policy (CSP)
 
@@ -120,9 +123,20 @@ kafkadash/
 
 ## API Endpoints
 
+### Topics
 - `GET /api/v1/topics` - List all topics with details
+- `POST /api/v1/topics` - Create a new topic
 - `GET /api/v1/topics/:topic/messages` - Get recent messages for a topic
 - `GET /api/v1/topics/:topic/consumers` - Get consumer groups for a topic
+- `POST /api/v1/topics/:topic/produce` - Produce a message to a topic
+
+### Cluster
+- `GET /api/v1/cluster/health` - Get cluster health status
+
+### Documentation
+- `GET /api-docs` - Interactive Swagger/OpenAPI documentation
+
+For detailed API documentation with examples and schemas, visit `/api-docs` when the server is running.
 
 ## Security Features
 
