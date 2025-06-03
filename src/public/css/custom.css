@@ -1,0 +1,381 @@
+/* Activity Calendar Styles */
+.activity-calendar-day {
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+.activity-calendar-day:hover {
+    transform: scale(1.2);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.activity-calendar-day.today {
+    border: 2px solid #3b82f6;
+}
+
+/* Activity levels - Light mode */
+.activity-level-0 {
+    background-color: #f3f4f6;
+}
+
+.activity-level-1 {
+    background-color: #dbeafe;
+}
+
+.activity-level-2 {
+    background-color: #93c5fd;
+}
+
+.activity-level-3 {
+    background-color: #60a5fa;
+}
+
+.activity-level-4 {
+    background-color: #3b82f6;
+}
+
+.activity-level-5 {
+    background-color: #2563eb;
+}
+
+/* Activity levels - Dark mode */
+.dark .activity-level-0 {
+    background-color: #1f2937;
+}
+
+.dark .activity-level-1 {
+    background-color: #1e3a8a;
+}
+
+.dark .activity-level-2 {
+    background-color: #1e40af;
+}
+
+.dark .activity-level-3 {
+    background-color: #2563eb;
+}
+
+.dark .activity-level-4 {
+    background-color: #3b82f6;
+}
+
+.dark .activity-level-5 {
+    background-color: #60a5fa;
+}
+
+/* Topic Card Activity Indicators */
+.topic-activity-indicator {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: linear-gradient(45deg, #10b981, #059669);
+    animation: pulse-activity 2s infinite;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.topic-activity-indicator.active {
+    opacity: 1;
+}
+
+.topic-card-activity-pulse {
+    animation: topic-pulse 1.5s ease-in-out;
+}
+
+.topic-message-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: linear-gradient(45deg, #ef4444, #dc2626);
+    color: white;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: bold;
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+    opacity: 0;
+    transform: scale(0);
+    transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.topic-message-badge.show {
+    opacity: 1;
+    transform: scale(1);
+}
+
+/* Animations */
+@keyframes pulse-activity {
+    0%, 100% {
+        opacity: 0.7;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1.1);
+    }
+}
+
+@keyframes topic-pulse {
+    0% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+    }
+    50% {
+        transform: scale(1.02);
+        box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
+    }
+    100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+    }
+}
+
+/* Tooltip for activity calendar */
+.activity-tooltip {
+    position: absolute;
+    background: rgba(0, 0, 0, 0.9);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 1000;
+    opacity: 0;
+    transform: translateY(-5px);
+    transition: all 0.2s ease;
+    backdrop-filter: blur(8px);
+}
+
+.activity-tooltip.show {
+    opacity: 1;
+    transform: translateY(-10px);
+}
+
+.dark .activity-tooltip {
+    background: rgba(55, 65, 81, 0.95);
+    color: #f1f5f9;
+}
+
+/* Real-time activity flash */
+.realtime-flash {
+    animation: realtime-flash 0.5s ease-out;
+}
+
+@keyframes realtime-flash {
+    0% {
+        background-color: rgba(16, 185, 129, 0.3);
+        transform: scale(1);
+        border: 2px solid rgba(16, 185, 129, 0.6);
+    }
+    50% {
+        background-color: rgba(16, 185, 129, 0.6);
+        transform: scale(1.05);
+        border: 2px solid rgba(16, 185, 129, 1);
+        box-shadow: 0 0 20px rgba(16, 185, 129, 0.5);
+    }
+    100% {
+        background-color: transparent;
+        transform: scale(1);
+        border: 2px solid transparent;
+    }
+}
+
+/* Enhanced topic card animations */
+.topic-card-new-message {
+    animation: new-message-bounce 1s ease-out;
+}
+
+@keyframes new-message-bounce {
+    0% {
+        transform: scale(1) rotate(0deg);
+    }
+    25% {
+        transform: scale(1.02) rotate(1deg);
+        box-shadow: 0 10px 30px rgba(16, 185, 129, 0.3);
+    }
+    50% {
+        transform: scale(1.05) rotate(-1deg);
+        box-shadow: 0 15px 35px rgba(16, 185, 129, 0.4);
+    }
+    75% {
+        transform: scale(1.02) rotate(0.5deg);
+        box-shadow: 0 10px 30px rgba(16, 185, 129, 0.3);
+    }
+    100% {
+        transform: scale(1) rotate(0deg);
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+}
+
+/* Sparkle effect for high activity */
+.topic-card-sparkle::before {
+    content: '✨';
+    position: absolute;
+    top: -5px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 20px;
+    animation: sparkle-float 2s ease-in-out infinite;
+    pointer-events: none;
+}
+
+@keyframes sparkle-float {
+    0%, 100% {
+        opacity: 0;
+        transform: translateX(-50%) translateY(0);
+    }
+    50% {
+        opacity: 1;
+        transform: translateX(-50%) translateY(-10px);
+    }
+}
+
+/* Collapsible Activity Section Styles */
+.activity-calendar-content-collapsed {
+    max-height: 0;
+    opacity: 0;
+    margin-top: 0;
+    margin-bottom: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    transform: translateY(-10px);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.activity-calendar-content-expanded {
+    max-height: 500px;
+    opacity: 1;
+    transform: translateY(0);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Activity Toggle Button Styles */
+.activity-toggle-btn {
+    position: relative;
+    border-radius: 6px;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.activity-toggle-btn svg {
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.activity-toggle-btn.collapsed svg {
+    transform: rotate(90deg);
+}
+
+.activity-toggle-btn:hover {
+    background-color: rgba(107, 114, 128, 0.1);
+    transform: scale(1.1);
+}
+
+.activity-toggle-btn:hover svg {
+    transform: scale(1.1);
+}
+
+.activity-toggle-btn.collapsed:hover svg {
+    transform: rotate(90deg) scale(1.1);
+}
+
+.activity-toggle-btn:active {
+    transform: scale(0.95);
+    transition: transform 0.1s ease;
+}
+
+.activity-toggle-btn:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+    background-color: rgba(59, 130, 246, 0.1);
+}
+
+.activity-toggle-btn:focus:not(:hover) {
+    animation: subtle-pulse 2s infinite;
+}
+
+@keyframes subtle-pulse {
+    0%, 100% {
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+    }
+    50% {
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+    }
+}
+
+.dark .activity-toggle-btn:hover {
+    background-color: rgba(148, 163, 184, 0.1);
+}
+
+/* Improved Tooltip Styles */
+.activity-toggle-btn::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 130%;
+    left: 50%;
+    transform: translateX(-50%) translateY(5px);
+    background: rgba(0, 0, 0, 0.9);
+    color: white;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 500;
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1000;
+    pointer-events: none;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.activity-toggle-btn::before {
+    content: '';
+    position: absolute;
+    bottom: 120%;
+    left: 50%;
+    transform: translateX(-50%) translateY(2px);
+    border: 4px solid transparent;
+    border-top-color: rgba(0, 0, 0, 0.9);
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1000;
+}
+
+.activity-toggle-btn:hover::after {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0);
+}
+
+.activity-toggle-btn:hover::before {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0);
+}
+
+.dark .activity-toggle-btn::after {
+    background: rgba(55, 65, 81, 0.95);
+    color: #f1f5f9;
+}
+
+.dark .activity-toggle-btn::before {
+    border-top-color: rgba(55, 65, 81, 0.95);
+}
+
+/* Remove old tooltip styles to avoid conflicts */
+.tooltip {
+    position: relative;
+}

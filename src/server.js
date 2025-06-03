@@ -22,6 +22,108 @@ const APP_START_TIME = Date.now();
 const messageCache = new Map();
 const CACHE_TTL = 30000; // 30 seconds cache (longer since we check for changes)
 
+// Activity tracking system for visual indicators
+const activityTracker = new Map(); // topic -> { lastMessageCount, lastUpdate, dailyActivity }
+const realtimeActivity = new Map(); // topic -> { isActive, newMessageCount, lastActivity }
+
+// Initialize activity tracking
+function initializeActivityTracking() {
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Clean up old activity data (keep last 30 days)
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    
+    for (const [topic, data] of activityTracker.entries()) {
+        if (data.dailyActivity) {
+            // Remove entries older than 30 days
+            for (const date in data.dailyActivity) {
+                if (date < thirtyDaysAgo) {
+                    delete data.dailyActivity[date];
+                }
+            }
+        }
+    }
+}
+
+// Update activity for a topic
+function updateTopicActivity(topicName, currentMessageCount) {
+    const now = Date.now();
+    const today = new Date().toISOString().split('T')[0];
+    
+    let activityData = activityTracker.get(topicName);
+    if (!activityData) {
+        activityData = {
+            lastMessageCount: currentMessageCount,
+            lastUpdate: now,
+            dailyActivity: {}
+        };
+        activityTracker.set(topicName, activityData);
+    }
+    
+    // Initialize today if not exists
+    if (!activityData.dailyActivity[today]) {
+        activityData.dailyActivity[today] = 0;
+    }
+    
+    // Calculate new messages since last check
+    const newMessages = Math.max(0, currentMessageCount - activityData.lastMessageCount);
+    
+    if (newMessages > 0) {
+        // Update daily activity
+        activityData.dailyActivity[today] += newMessages;
+        
+        // Update realtime activity
+        realtimeActivity.set(topicName, {
+            isActive: true,
+            newMessageCount: newMessages,
+            lastActivity: now
+        });
+        
+        logger.info(`Activity detected in topic ${topicName}: +${newMessages} messages`);
+    }
+    
+    // Update tracking data
+    activityData.lastMessageCount = currentMessageCount;
+    activityData.lastUpdate = now;
+    
+    return newMessages;
+}
+
+// Get activity data for frontend
+function getActivityData() {
+    const result = {
+        realtimeActivity: Object.fromEntries(realtimeActivity),
+        dailyActivity: {}
+    };
+    
+    // Build daily activity summary
+    for (const [topic, data] of activityTracker.entries()) {
+        if (data.dailyActivity) {
+            for (const [date, count] of Object.entries(data.dailyActivity)) {
+                if (!result.dailyActivity[date]) {
+                    result.dailyActivity[date] = 0;
+                }
+                result.dailyActivity[date] += count;
+            }
+        }
+    }
+    
+    return result;
+}
+
+// Clean up old realtime activity (mark as inactive after 5 minutes)
+setInterval(() => {
+    const now = Date.now();
+    const fiveMinutesAgo = now - 5 * 60 * 1000;
+    
+    for (const [topic, activity] of realtimeActivity.entries()) {
+        if (activity.lastActivity < fiveMinutesAgo) {
+            activity.isActive = false;
+            activity.newMessageCount = 0;
+        }
+    }
+}, 60000); // Check every minute
+
 // Cache structure: 
 // {
 //   messages: [...],
@@ -352,10 +454,14 @@ app.get(`${API_PREFIX}/topics`, async (req, res) => {
 
                 const totalMessages = topicOffsets.reduce((sum, partition) => sum + Number(partition.high), 0);
 
+                // Track activity for this topic
+                const newMessages = updateTopicActivity(topic, totalMessages);
+
                 return {
                     name: topic,
                     partitions: topicOffsets.length,
-                    depth: totalMessages
+                    depth: totalMessages,
+                    newMessages: newMessages // Include new messages for frontend
                 };
             } catch (topicError) {
                 logger.error(`Error fetching details for topic ${topic}:`, topicError);
@@ -1216,6 +1322,43 @@ setInterval(() => {
         }
     }
 }, CACHE_TTL);
+
+// New API endpoint to get activity data
+/**
+ * @swagger
+ * /activity:
+ *   get:
+ *     summary: Get topic activity data
+ *     description: Retrieves activity data for topics including daily message counts and real-time activity status
+ *     tags: [Topics]
+ *     responses:
+ *       200:
+ *         description: Activity data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 realtimeActivity:
+ *                   type: object
+ *                   description: Real-time activity status for each topic
+ *                 dailyActivity:
+ *                   type: object
+ *                   description: Daily message counts for the last 30 days
+ */
+app.get(`${API_PREFIX}/activity`, (req, res) => {
+    try {
+        const activityData = getActivityData();
+        res.json(activityData);
+    } catch (error) {
+        logger.error('Error fetching activity data:', error);
+        res.status(500).json({ 
+            error: 'Failed to fetch activity data',
+            realtimeActivity: {},
+            dailyActivity: {}
+        });
+    }
+});
 
 app.listen(port, () => {
     const baseUrl = `http://localhost:${port}`;

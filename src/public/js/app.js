@@ -447,7 +447,7 @@ function createTopicCard(topic) {
     const colorTheme = getTopicColorTheme(topic.name);
     
     return `
-        <div class="${colorTheme.bg} rounded-lg shadow-sm hover:shadow-md dark:shadow-slate-900/30 p-6 transform transition-all duration-300 hover:scale-105 border ${colorTheme.border}">
+        <div class="${colorTheme.bg} rounded-lg shadow-sm hover:shadow-md dark:shadow-slate-900/30 p-6 transform transition-all duration-300 hover:scale-105 border ${colorTheme.border}" data-topic="${topic.name}">
             <div class="flex justify-between items-start mb-4">
                 <h3 class="text-lg font-semibold text-gray-900 dark:text-slate-100">${topic.name}</h3>
                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorTheme.accent} ${colorTheme.accentText}">
@@ -506,6 +506,18 @@ function showTopicDetails(topicName) {
     const modalTitle = document.getElementById('modal-title');
     const modalContent = document.getElementById('modal-content');
     
+    // Remove message badge from the topic card when modal is opened
+    const topicCard = document.querySelector(`[data-topic="${topicName}"]`);
+    if (topicCard) {
+        const badge = topicCard.querySelector('.topic-message-badge');
+        if (badge) {
+            badge.classList.remove('show');
+            setTimeout(() => {
+                badge.remove();
+            }, 300);
+        }
+    }
+    
     modalTitle.textContent = topicName;
     modalContent.innerHTML = `
         <div class="text-center py-8">
@@ -520,9 +532,15 @@ function showTopicDetails(topicName) {
 }
 
 function closeModal() {
+    console.log('closeModal function called');
     const modal = document.getElementById('topic-modal');
-    modal.classList.add('hidden');
-    modal.classList.remove('flex');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        console.log('Modal closed successfully');
+    } else {
+        console.error('Modal element not found');
+    }
 }
 
 async function fetchTopicDetails(topicName) {
@@ -985,6 +1003,10 @@ async function submitProducerForm(event) {
                 offset: result.offset
             });
             
+            // Immediately refresh the dashboard to reflect new message
+            console.log(`🔄 Refreshing dashboard after message production to ${topicName}`);
+            fetchTopics();
+            
             // Close modal after delay
             setTimeout(() => {
                 closeProducerModal();
@@ -1184,6 +1206,319 @@ function showNotification(message, type = 'info', details = null) {
     }, 5000);
 }
 
+// Activity Section Toggle functionality
+let isActivitySectionCollapsed = false;
+
+function initActivitySectionToggle() {
+    const toggleButton = document.getElementById('toggle-activity-section');
+    const activityContent = document.getElementById('activity-calendar-content');
+    
+    if (!toggleButton || !activityContent) {
+        console.error('Activity section toggle elements not found:', {
+            toggleButton: !!toggleButton,
+            activityContent: !!activityContent
+        });
+        return;
+    }
+    
+    // Load saved state from localStorage
+    const savedState = localStorage.getItem('activitySectionCollapsed');
+    if (savedState === 'true') {
+        toggleActivitySection(true);
+    }
+    
+    toggleButton.addEventListener('click', () => {
+        console.log('Activity section toggle clicked');
+        toggleActivitySection();
+    });
+    
+    console.log('Activity section toggle initialized successfully');
+}
+
+function toggleActivitySection(forceCollapse = null) {
+    const toggleButton = document.getElementById('toggle-activity-section');
+    const activityContent = document.getElementById('activity-calendar-content');
+    
+    if (!toggleButton || !activityContent) {
+        console.error('Activity section toggle elements not found during toggle');
+        return;
+    }
+    
+    if (forceCollapse !== null) {
+        isActivitySectionCollapsed = forceCollapse;
+    } else {
+        isActivitySectionCollapsed = !isActivitySectionCollapsed;
+    }
+    
+    if (isActivitySectionCollapsed) {
+        // Collapse the section
+        activityContent.classList.add('activity-calendar-content-collapsed');
+        activityContent.classList.remove('activity-calendar-content-expanded');
+        toggleButton.classList.add('collapsed');
+        toggleButton.setAttribute('data-tooltip', 'Expand Calendar');
+        toggleButton.setAttribute('aria-expanded', 'false');
+        toggleButton.title = 'Expand Calendar';
+    } else {
+        // Expand the section
+        activityContent.classList.remove('activity-calendar-content-collapsed');
+        activityContent.classList.add('activity-calendar-content-expanded');
+        toggleButton.classList.remove('collapsed');
+        toggleButton.setAttribute('data-tooltip', 'Collapse Calendar');
+        toggleButton.setAttribute('aria-expanded', 'true');
+        toggleButton.title = 'Collapse Calendar';
+    }
+    
+    // Save state to localStorage
+    localStorage.setItem('activitySectionCollapsed', isActivitySectionCollapsed.toString());
+    console.log('Activity section toggled:', isActivitySectionCollapsed ? 'collapsed' : 'expanded');
+}
+
+// Activity Calendar functionality
+let activityData = {};
+let activityTooltip = null;
+
+async function fetchActivityData() {
+    try {
+        const response = await fetch(`${API_PREFIX}/activity`);
+        if (response.ok) {
+            const data = await response.json();
+            activityData = data.dailyActivity || {};
+            updateActivityCalendar();
+            updateActivityStats();
+        }
+    } catch (error) {
+        console.error('Error fetching activity data:', error);
+    }
+}
+
+function generateActivityCalendar() {
+    const calendarContainer = document.getElementById('activity-calendar');
+    if (!calendarContainer) return;
+
+    const today = new Date();
+    const thirtyDaysAgo = new Date(today);
+    thirtyDaysAgo.setDate(today.getDate() - 29); // 30 days total including today
+
+    calendarContainer.innerHTML = '';
+
+    // Generate calendar grid
+    for (let i = 0; i < 30; i++) {
+        const date = new Date(thirtyDaysAgo);
+        date.setDate(thirtyDaysAgo.getDate() + i);
+        
+        const dayKey = date.toISOString().split('T')[0];
+        const messageCount = activityData[dayKey] || 0;
+        
+        const dayElement = document.createElement('div');
+        dayElement.className = `activity-calendar-day ${getActivityLevel(messageCount)}`;
+        
+        if (isSameDay(date, today)) {
+            dayElement.classList.add('today');
+        }
+        
+        // Add tooltip and hover effects
+        dayElement.addEventListener('mouseenter', (e) => showActivityTooltip(e, date, messageCount));
+        dayElement.addEventListener('mouseleave', hideActivityTooltip);
+        dayElement.addEventListener('mousemove', moveActivityTooltip);
+        
+        calendarContainer.appendChild(dayElement);
+    }
+}
+
+function getActivityLevel(messageCount) {
+    if (messageCount === 0) return 'activity-level-0';
+    if (messageCount <= 5) return 'activity-level-1';
+    if (messageCount <= 15) return 'activity-level-2';
+    if (messageCount <= 30) return 'activity-level-3';
+    if (messageCount <= 50) return 'activity-level-4';
+    return 'activity-level-5';
+}
+
+function updateActivityCalendar() {
+    generateActivityCalendar();
+}
+
+function updateActivityStats() {
+    const today = new Date().toISOString().split('T')[0];
+    const todayMessages = activityData[today] || 0;
+    
+    // Calculate 30-day total
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29);
+    
+    let totalMessages = 0;
+    for (let i = 0; i < 30; i++) {
+        const date = new Date(thirtyDaysAgo);
+        date.setDate(thirtyDaysAgo.getDate() + i);
+        const dayKey = date.toISOString().split('T')[0];
+        totalMessages += activityData[dayKey] || 0;
+    }
+    
+    // Update UI
+    const todayElement = document.getElementById('today-messages');
+    const totalElement = document.getElementById('total-messages');
+    
+    if (todayElement) {
+        todayElement.textContent = formatNumber(todayMessages);
+    }
+    
+    if (totalElement) {
+        totalElement.textContent = formatNumber(totalMessages);
+    }
+    
+    // Update date range
+    const dateRangeElement = document.getElementById('date-range');
+    if (dateRangeElement) {
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - 29);
+        const endDate = new Date();
+        
+        dateRangeElement.textContent = `${formatDateShort(startDate)} - ${formatDateShort(endDate)}`;
+    }
+}
+
+function formatNumber(num) {
+    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+    if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+    return num.toString();
+}
+
+function formatDateShort(date) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${months[date.getMonth()]} ${date.getDate()}`;
+}
+
+function showActivityTooltip(event, date, messageCount) {
+    if (!activityTooltip) {
+        activityTooltip = document.createElement('div');
+        activityTooltip.className = 'activity-tooltip';
+        document.body.appendChild(activityTooltip);
+    }
+    
+    const dateStr = date.toLocaleDateString('en-US', { 
+        weekday: 'short', 
+        month: 'short', 
+        day: 'numeric', 
+        year: 'numeric' 
+    });
+    
+    activityTooltip.innerHTML = `
+        <div>${messageCount} ${messageCount === 1 ? 'message' : 'messages'}</div>
+        <div>${dateStr}</div>
+    `;
+    
+    moveActivityTooltip(event);
+    activityTooltip.classList.add('show');
+}
+
+function hideActivityTooltip() {
+    if (activityTooltip) {
+        activityTooltip.classList.remove('show');
+    }
+}
+
+function moveActivityTooltip(event) {
+    if (activityTooltip) {
+        const rect = event.target.getBoundingClientRect();
+        activityTooltip.style.left = `${rect.left + rect.width / 2}px`;
+        activityTooltip.style.top = `${rect.top - 10}px`;
+    }
+}
+
+function isSameDay(date1, date2) {
+    return date1.toDateString() === date2.toDateString();
+}
+
+// Topic Card Activity Enhancement
+function enhanceTopicCard(card, topic) {
+    // Add data attribute for topic identification
+    card.setAttribute('data-topic', topic.name);
+    
+    // Add activity indicator
+    const existingIndicator = card.querySelector('.topic-activity-indicator');
+    if (!existingIndicator) {
+        const indicator = document.createElement('div');
+        indicator.className = 'topic-activity-indicator';
+        card.style.position = 'relative';
+        card.appendChild(indicator);
+    }
+    
+    // Add message badge
+    const existingBadge = card.querySelector('.topic-message-badge');
+    if (!existingBadge && topic.newMessages > 0) {
+        const badge = document.createElement('div');
+        badge.className = 'topic-message-badge show';
+        badge.textContent = topic.newMessages > 99 ? '99+' : topic.newMessages;
+        card.style.position = 'relative';
+        card.appendChild(badge);
+    } else if (existingBadge) {
+        if (topic.newMessages > 0) {
+            existingBadge.textContent = topic.newMessages > 99 ? '99+' : topic.newMessages;
+            existingBadge.classList.add('show');
+        } else {
+            existingBadge.classList.remove('show');
+        }
+    }
+}
+
+function showTopicActivity(topicName, messageCount = 0) {
+    const topicCard = document.querySelector(`[data-topic="${topicName}"]`);
+    if (topicCard) {
+        // Remove any existing animation classes
+        topicCard.classList.remove('topic-card-activity-pulse', 'realtime-flash', 'topic-card-new-message', 'topic-card-sparkle');
+        
+        const indicator = topicCard.querySelector('.topic-activity-indicator');
+        if (indicator) {
+            indicator.classList.add('active');
+            setTimeout(() => {
+                indicator.classList.remove('active');
+            }, 3000);
+        }
+        
+        // Different animations based on message count
+        if (messageCount > 10) {
+            // High activity - sparkle effect
+            topicCard.classList.add('topic-card-sparkle');
+            setTimeout(() => {
+                topicCard.classList.remove('topic-card-sparkle');
+            }, 2000);
+        }
+        
+        if (messageCount > 5) {
+            // Medium activity - enhanced bounce
+            topicCard.classList.add('topic-card-new-message');
+            setTimeout(() => {
+                topicCard.classList.remove('topic-card-new-message');
+            }, 1000);
+        } else {
+            // Low activity - regular pulse
+            topicCard.classList.add('topic-card-activity-pulse');
+            setTimeout(() => {
+                topicCard.classList.remove('topic-card-activity-pulse');
+            }, 1500);
+        }
+        
+        // Always add flash effect for immediate feedback
+        topicCard.classList.add('realtime-flash');
+        setTimeout(() => {
+            topicCard.classList.remove('realtime-flash');
+        }, 500);
+        
+        // Update message badge with animation
+        const badge = topicCard.querySelector('.topic-message-badge');
+        if (badge && messageCount > 0) {
+            badge.style.animation = 'none';
+            setTimeout(() => {
+                badge.style.animation = '';
+                badge.classList.add('show');
+            }, 10);
+        }
+        
+        console.log(`🎉 Topic activity triggered for ${topicName} with ${messageCount} new messages`);
+    }
+}
+
 // Main data fetching
 async function fetchTopics() {
     try {
@@ -1217,6 +1552,33 @@ async function fetchTopics() {
         }
         
         updateKafkaInfo(topics, kafkaInfo);
+        
+        // Fetch activity data and update activity calendar
+        await fetchActivityData();
+        
+        // Enhance topic cards with activity indicators after rendering
+        if (topics.length > 0) {
+            let totalNewMessages = 0;
+            topics.forEach(topic => {
+                const topicCard = document.querySelector(`[data-topic="${topic.name}"]`);
+                if (topicCard) {
+                    enhanceTopicCard(topicCard, topic);
+                    
+                    // Trigger visual activity animations if new messages detected
+                    if (topic.newMessages && topic.newMessages > 0) {
+                        totalNewMessages += topic.newMessages;
+                        showTopicActivity(topic.name, topic.newMessages);
+                    }
+                }
+            });
+            
+            // Show system-wide activity notification for significant activity
+            if (totalNewMessages > 20) {
+                showNotification(`🚀 High activity detected! ${totalNewMessages} new messages across ${topics.filter(t => t.newMessages > 0).length} topics`, 'success');
+            } else if (totalNewMessages > 0) {
+                console.log(`📈 Activity detected: ${totalNewMessages} new messages across ${topics.filter(t => t.newMessages > 0).length} topics`);
+            }
+        }
     } catch (error) {
         console.error('Error fetching topics:', error);
         const kafkaStatusDot = document.querySelector('#kafka-info .status-dot');
@@ -1286,6 +1648,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateMonitoringStatus();
     updateLiveDataIndicator();
     initKafkaInfoState();
+    initActivitySectionToggle();
     
     // Event listeners
     const themeToggleBtn = document.getElementById('theme-toggle');
@@ -1303,7 +1666,16 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('manual-refresh').addEventListener('click', performManualRefresh);
     document.getElementById('auto-refresh-toggle').addEventListener('click', toggleAutoRefresh);
     document.getElementById('toggle-kafka-info').addEventListener('click', toggleKafkaInfoDetails);
-    document.getElementById('modal-close-btn').addEventListener('click', closeModal);
+    
+    // Modal close button event listeners with error checking
+    const modalCloseBtn = document.getElementById('modal-close-btn');
+    if (modalCloseBtn) {
+        modalCloseBtn.addEventListener('click', closeModal);
+        console.log('Modal close button event listener attached');
+    } else {
+        console.error('Modal close button not found');
+    }
+    
     document.getElementById('message-modal-close-btn').addEventListener('click', closeMessageModal);
     document.getElementById('consumers-modal-close-btn').addEventListener('click', closeConsumersModal);
     document.getElementById('producer-modal-close-btn').addEventListener('click', closeProducerModal);
